@@ -1,0 +1,102 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# commands
+# vagrant up  #start server, if crash, run again and will start needed servers
+# vagrant ssh server, or vagrant ssh client  #ssh into server/client
+# vagrant ssh-config  #show where ssh private key is located.
+# vagrant destroy -f  #stop servers and destroy them.
+# vagrant halt  #stop all servers.
+# vagrant provision  #run provision method after intial install.
+
+Vagrant.configure("2") do |config|
+
+  #Variables
+  $IMAGE = "ubuntu/xenial64"  # https://app.vagrantup.com/ubuntu/boxes/xenial64
+  $IP_SERVER = "10.0.0.10"  #ssh vagrant@10.0.0.11  #ssh from server to client.
+  $IP_CLIENT = "10.0.0.11"
+  $BASH_CUSTOM_CMD = <<-EOC
+  alias lsa="ls -al"
+  alias rmf="rm -rf"
+  alias cls="clear"
+  alias cpp="cp -rp"
+  touch2() { mkdir -p "$(dirname "$1")" && touch "$1" ; }
+  function cd () {
+    builtin cd "$1"
+    ls -al\n
+  }
+  EOC
+
+  # build client first, to modify firewall rules so I can ssh-copy-id into.
+  config.vm.define "client" do |client|
+    client.vm.box = $IMAGE
+    client.vm.network "private_network", ip: $IP_CLIENT
+    client.vm.provider "virtualbox" do |vb|
+      # vb.gui = true
+      vb.memory = "2048"
+      vb.cpus = 2
+      vb.name = "client"
+      # vb.customize ["modifyvm", :id, "--vram", "12"]   # change video ram to 12MB
+      # vb.customize ["modifyvm", :id, "--clipboard-mode", "bidirectional"]
+      # vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
+      # vb.customize ["modifyvm", :id, "--nictype1", "Am79C973"]
+      # vb.customize ["modifyvm", :id, "--nictype2", "Am79C973"]
+    end
+
+    # provision methods only run once on install. If problems, 'vagrant provision' will run them again.
+    client.vm.provision "shell", inline: <<-EOC
+      sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+      sudo sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
+      sudo systemctl restart sshd.service
+      add-apt-repository universe
+      add-apt-repository multiverse
+      add-apt-repository restricted
+      apt update -y
+      apt install -y git python3-pip python-pip software-properties-common
+      echo "finished!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    EOC
+    # run as vagrant
+    $script = <<-SCRIPT
+    echo #$BASH_CUSTOM_CMD >> ~/.bashrc
+    ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa <<<y >/dev/null 2>&1
+  SCRIPT
+  client.vm.provision "shell", inline: $script, privileged: false
+end
+
+  # run server last
+  config.vm.define "server" do |server|
+    server.vm.box = $IMAGE
+    server.vm.network "private_network", ip: $IP_SERVER
+    
+    # virtualbox hooks
+    server.vm.provider "virtualbox" do |vb|
+      # vb.gui = true
+      vb.memory = "2048"
+      vb.cpus = 2
+      vb.name = "server"
+      # vb.customize ["modifyvm", :id, "--vram", "12"]   # change video ram to 12MB
+      # vb.customize ["modifyvm", :id, "--clipboard-mode", "bidirectional"]
+      # vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
+      # vb.customize ["modifyvm", :id, "--nictype1", "Am79C973"]
+      # vb.customize ["modifyvm", :id, "--nictype2", "Am79C973"]
+    end
+
+    # run as root
+    server.vm.provision "shell", inline: <<-SHELL
+      add-apt-repository universe
+      add-apt-repository multiverse
+      add-apt-repository restricted
+      apt-get update -y
+      apt-get install -y git ansible sshpass python3-pip python-pip
+    SHELL
+
+    # run as user: vagrant
+    $script = <<-SCRIPT
+      git clone "https://github.com/webmastersmith/vagrant_server.git" ~/vagrant_server
+      echo #$BASH_CUSTOM_CMD >> ~/.bashrc
+      ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa <<<y >/dev/null 2>&1
+      sshpass -p vagrant ssh-copy-id -o StrictHostKeyChecking=no vagrant@10.0.0.11
+    SCRIPT
+    server.vm.provision "shell", inline: $script, privileged: false
+  end
+end

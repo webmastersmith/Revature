@@ -1,0 +1,4 @@
+[
+  "test_pytest.py::test_capital_case",
+  "test_pytest.py::test_capital_case_pass"
+]

@@ -1,0 +1,17 @@
+pipeline {
+  agent any
+  environment {
+    DOCKERHUB_CREDENTIALS=credentials('dockerhublogin')
+  }
+  stages {
+    stage('cleanup') {
+      steps {
+        sh 'whoami'
+        sh 'ls -al'
+        sh 'docker build --target web -t bryonsmith/ngx:v1 . -f ./e-commerce-frontend/Dockerfile'
+        sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+        sh 'docker push "bryonsmith/ngx:v1"'
+      }
+    }
+  }
+}
