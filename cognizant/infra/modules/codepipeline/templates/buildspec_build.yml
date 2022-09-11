@@ -12,9 +12,7 @@ phases:
     commands:
       - echo `ls -lrt`
       - echo Build started on `date`
-      - echo Building the Docker image...
-      - echo cd into lambda directory!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      - cd ./lambda
+      - echo Building the Docker image...          
       - docker build -t $IMAGE_URI .
   post_build:
     commands:

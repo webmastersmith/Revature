@@ -1,7 +1,7 @@
-org_name   = "devops"
-team_name  = "one"
-project_id = "1"
-region     = "us-east-1"
+org_name   = ""
+team_name  = ""
+project_id = ""
+region     = ""
 env = {
   "dev" = "dev"
   "qa"  = "qa"
